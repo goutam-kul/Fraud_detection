@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import make_asgi_app
 from src.config import get_settings
 from src.config.constants import API_DESCRIPTION
+
 
 settings = get_settings()
 
@@ -26,6 +28,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Create metrics endpoint
+    metrics_app = make_asgi_app()
+    app.mount("/metrics", metrics_app)
+
     # Add exception handlers
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
@@ -43,11 +49,14 @@ def create_app() -> FastAPI:
         return {"status": "healthy"}
 
     # Import and include API routes
-    from .routes import prediction
+    from .routes import prediction, metrics_endpoint
     app.include_router(
         prediction.router,
         prefix=settings.API_V1_STR,
         tags=["predictions"]
+    )
+    app.include_router(
+        metrics_endpoint.router,
     )
 
     return app
