@@ -65,12 +65,11 @@ class TransactionResponse(BaseModel):
     processing_time: float  # in milliseconds
     timestamp: datetime
 
-    class Config:
-        from_attributes = True  
+    model_config = ConfigDict(from_attributes=True)
 
 class BatchPredictionRequest(BaseModel):
     """Batch prediction request model"""
-    transactions: List[TransactionRequest] = Field(..., min_items=1, max_items=1000)
+    transactions: List[TransactionRequest] = Field(..., min_length=1, max_items=1000)
 
 class BatchPredictionResponse(BaseModel):
     """Batch prediction response model"""

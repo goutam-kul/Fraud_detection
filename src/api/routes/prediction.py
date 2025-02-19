@@ -8,8 +8,6 @@ from src.api.schemas import (
 from src.monitoring.metrics import (
     track_prediction,
     track_request,
-    PREDICTION_TIME,
-    update_drift_metrics
 )
 from src.core.model import model_manager
 from src.core.preprocessing import preprocessor

@@ -14,7 +14,7 @@ class TransactionPreprocessor:
     def _convert_to_day_part(self, timestamp: datetime) -> int:
         """Convert timestamp to day part (0-3)"""
         hour = timestamp.hour
-        return (int(hour) / 6)  # Split day into parts of 4 (0-3)
+        return hour // 6  # Split day into parts of 4 (0-3)
 
     def preprocess_transaction(self, transaction_data: Dict[str, Any]) -> np.ndarray:
         """Preprocess a single transaction for prediction"""
@@ -44,6 +44,7 @@ class TransactionPreprocessor:
             # Finally add day_part (index 29)
             features[29] = day_part
             
+            # print(features.reshape(1, -1))   # Debug
             return features.reshape(1, -1)
             
         except Exception as e:
