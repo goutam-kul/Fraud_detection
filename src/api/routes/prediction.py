@@ -5,6 +5,12 @@ from src.api.schemas import (
     BatchPredictionRequest,
     BatchPredictionResponse
 )
+from src.monitoring.metrics import (
+    track_prediction,
+    track_request,
+    PREDICTION_TIME,
+    update_drift_metrics
+)
 from src.core.model import model_manager
 from src.core.preprocessing import preprocessor
 from src.db.crud import PredictionCRUD
@@ -27,39 +33,69 @@ async def create_prediction(
     crud: PredictionCRUD = Depends()
 ) -> TransactionResponse:
     """Create a new fraud prediction for a transaction."""
-    start_time = time.time()
+    request_start_time = time.time()
     try:
         # Convert transaction to model features (Preprocessing)
         features_dict = transaction.model_dump()
         features = preprocessor.preprocess_transaction(features_dict)
 
         # Get prediction
+        predict_start = time.time()
         probability = model_manager.predict(feature=features)
+        prediction_time = time.time() - predict_start
+
         is_fraud = model_manager.is_fraud(probability)
 
-        # Processing time calculation
-        processing_time = time.time() - start_time
-
+        # Store prediction
         prediction = crud.create_prediction(
             transaction_id=transaction.transaction_id,
             amount=transaction.amount,
             fraud_probability=probability,
             is_fraud=is_fraud,
-            processing_time=processing_time
+            processing_time=time.time() - predict_start
         )
-        return TransactionResponse(
+
+        response = TransactionResponse(
             transaction_id=transaction.transaction_id,
             fraud_probability=probability,
             is_fraud=is_fraud,
-            processing_time=processing_time,
+            processing_time=time.time() - predict_start,
             timestamp=prediction.created_at
         )
+        # track prediction metrics including drift
+        track_prediction(
+            fraud_probability=probability,
+            is_fraud=is_fraud,
+            features=features_dict['features'],  # V1-V28 features
+            prediction_time=prediction_time,
+            amount=transaction.amount
+        )
+
+        # Track successful report
+        track_request(
+            status_code=status.HTTP_201_CREATED,
+            response_time = time.time() - request_start_time,
+            endpoint='create_prediction'
+        )
+
+        return response
+    
     except ValueError as e:
+        track_request(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            response_time=time.time() - request_start_time,
+            endpoint='create_prediction'
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
+        track_request(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            response_time=time.time() - request_start_time,
+            endpoint='create_prediction'
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Prediction failed: {str(e)}"
@@ -129,65 +165,81 @@ async def create_batch_predictions(
     crud: PredictionCRUD = Depends()
 ) -> BatchPredictionResponse:
     """Create fraud predictions for multiple transactions."""
-    start_time = time.time()
-    
+    batch_start_time = time.time() 
+    results = []
     try:
-        # 1. Preprocess all transactions
-        transactions_dict = [tx.model_dump() for tx in request.transactions]
-        features = preprocessor.preprocess_batch(transactions_dict)
-        
-        # 2. Get predictions - ensure they're unique per transaction
-        probabilities = model_manager.batch_predict(features)
-        
-        # Add logging to verify probabilities
-        print(f"Debug - Raw probabilities: {probabilities}")
-        
-        fraud_predictions = [model_manager.is_fraud(float(p)) for p in probabilities]
-        
-        # 3. Process each prediction and store in database
-        results = []
-        for idx, (tx, prob, is_fraud) in enumerate(zip(request.transactions, probabilities, fraud_predictions)):
-            # Calculate individual processing time
-            tx_start_time = time.time()
-            
-            # Store prediction in database
+        for transaction in request.transactions:
+            # Process each transaction
+            features_dict = transaction.model_dump()
+            features = preprocessor.preprocess_batch(features_dict)
+
+            # Time prediction
+            predict_start = time.time()
+            probability = model_manager.predict(feature=features)
+            prediction_time = time.time() - predict_start
+
+            is_fraud = model_manager.predict(probability)
+
+            # Store prediction
             prediction = crud.create_prediction(
-                transaction_id=tx.transaction_id,
-                amount=float(tx.amount),
-                fraud_probability=float(prob),  # Ensure this is unique per transaction
-                is_fraud=bool(is_fraud),
-                processing_time=float((time.time() - tx_start_time) * 1000)  # Convert to ms
+                transaction_id=transaction.transaction_id,
+                amount=transaction.amount,
+                fraud_probability=probability,
+                is_fraud=is_fraud,
+                processing_time=prediction_time
             )
-            
+
+            # Track metrics for each prediction
+            track_prediction(
+                fraud_probability=probability,
+                is_fraud=is_fraud,
+                features=features_dict['features'],
+                prediction_time=prediction_time,
+                amount=transaction.amount
+            )
+
             # Add to results
             results.append(
                 TransactionResponse(
-                    transaction_id=tx.transaction_id,
-                    fraud_probability=float(prob),
-                    is_fraud=bool(is_fraud),
-                    processing_time=float((time.time() - tx_start_time) * 1000),
+                    transaction_id=transaction.transaction_id,
+                    fraud_probability=probability,
+                    is_fraud=is_fraud,
+                    processing_time=prediction_time,
                     timestamp=prediction.created_at
                 )
             )
-        
-        # 4. Calculate total processing time
-        total_processing_time = (time.time() - start_time) * 1000  # Convert to ms
-        
+        total_time = time.time()
+
+        # Track successful batch request
+        track_request(
+            status_code=status.HTTP_201_CREATED,
+            response_time=time.time() - total_time,
+            endpoint='create_batch_predictions'
+        )
+
         return BatchPredictionResponse(
             results=results,
-            total_processing_time=total_processing_time,
+            total_processing_time=time.time() - total_time,
             timestamp=datetime.now(timezone.utc)
         )
-    
+
     except ValueError as e:
+        track_request(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            response_time=time.time() - batch_start_time,
+            endpoint="create_batch_predictions"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
         
     except Exception as e:
-        # Add more detailed error logging
-        print(f"Debug - Batch prediction error: {str(e)}")
+        track_request(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            response_time=time.time() - batch_start_time,
+            endpoint="create_batch_predictions"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Batch prediction failed: {str(e)}"
