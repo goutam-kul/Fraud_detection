@@ -15,11 +15,12 @@ def create_app() -> FastAPI:
         title=settings.PROJECT_NAME,
         description=API_DESCRIPTION,
         version="1.0.0",
-        openapi_url=f"/{settings.API_V1_STR}/openapi.json",
-        docs_url=f"/{settings.API_V1_STR}/docs",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
     )
 
-    # Add CORS middleware
+    # Add CORS middleware(Cross-Origin Resource Sharing)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # In production, replace with specific origins

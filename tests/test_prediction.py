@@ -64,10 +64,10 @@ def test_invalid_transaction_handling(preprocessor, invalid_single_transaction):
     # Verify error message is helpful
     assert "failed" in str(exc_info.value).lower()
 
-def test_batch_transaction_processing(preprocessor, model_manager, valid_batch_transaction):
+def test_batch_transaction_processing(preprocessor, model_manager, valid_batch_transactions):
     """Test batch predictions"""
     # Test batch preprocessing
-    features = preprocessor.preprocess_batch(transactions=valid_batch_transaction)
+    features = preprocessor.preprocess_batch(transactions=valid_batch_transactions)
 
     # Verify shape and type
     assert features.shape == (len(features), 30), f"Expected shape ({len(features)}, 30), got {features.shape}"

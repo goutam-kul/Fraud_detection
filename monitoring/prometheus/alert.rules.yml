@@ -1,0 +1,60 @@
+groups:
+  - name: fraud_detection_alerts
+    rules:
+    # Business Critical Alerts
+    - alert: HighFraudRate
+      expr: rate(fraud_detection_total{result="fraud"}[5m]) / rate(fraud_detection_total{result=~"fraud|legitimate"}[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High fraud rate detected"
+        description: "Fraud rate is above 10% in the last 5 minutes"
+
+    # Model Performance Alerts
+    - alert: HighPredictionLatency
+      expr: histogram_quantile(0.95, rate(prediction_time_seconds_bucket[5m])) > 0.1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High prediction latency"
+        description: "95th percentile of prediction time is above 100ms"
+
+    # Model Drift Alerts
+    - alert: ModelDrift
+      expr: model_drift > 0.2
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Significant model drift detected"
+        description: "Model drift score {{ $value }} exceeds threshold 0.3"
+
+    - alert: FeatureDrift
+      expr: feature_drift > 0.2
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Significant feature drift detected"
+        description: "Feature {{ $labels.feature_name }} shows drift above threshold"
+
+    - alert: HighPSIScore
+      expr: population_stability_index > 0.2
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High PSI score detected"
+        description: "PSI for {{ $labels.feature_name }} indicates significant distribution shift"
+
+    # System Health Alerts
+    - alert: HighErrorRate
+      expr: rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High API error rate"
+        description: "Error rate is above 5% in the last 5 minutes"
