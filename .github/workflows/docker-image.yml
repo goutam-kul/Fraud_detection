@@ -15,14 +15,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Validate docker-compose configuration
-      run: docker-compose config
+    - name: Validate docker compose configuration
+      run: docker compose config
     
     - name: Build container
-      run: docker-compose build
+      run: docker compose build
 
     - name: Start the stack
-      run: docker-compose up -d
+      run: docker compose up -d
 
     - name: Wait for services to inititalize
       run: |
@@ -30,7 +30,7 @@ jobs:
         sleep 30
 
     - name: Check container status
-      run: docker-compose ps
+      run: docker compose ps
 
     - name: Test API health
       run: |
@@ -40,7 +40,7 @@ jobs:
     - name: Check database connection
       run: |
         # Test the database connetion from API container
-        docker-compose exec -T app pg_isready -h db -U user -d frauddb
+        docker compose exec -T app pg_isready -h db -U user -d frauddb
 
     - name: Check prometheus
       run: |
@@ -48,4 +48,4 @@ jobs:
         curl -f http://localhost:9090/-/healthy || exit 1
 
     - name: Stop containers
-      run: docker-compose down
+      run: docker compose down
