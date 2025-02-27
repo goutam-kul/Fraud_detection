@@ -1,0 +1,51 @@
+name: Docker Compose CI
+
+on:
+  push:
+    branches: [ "main", "development" ]
+  pull_request:
+    branches: [ "main", "development" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Validate docker compose configuration
+      run: docker compose config
+    
+    - name: Build container
+      run: docker compose build
+
+    - name: Start the stack
+      run: docker compose up -d
+
+    - name: Wait for services to inititalize
+      run: |
+        echo "Waiting for services to initialize..."
+        sleep 30
+
+    - name: Check container status
+      run: docker compose ps
+
+    - name: Test API health
+      run: |
+        # Test the health endpont for fraud detection API
+        curl -f http://localhost:8000/health || eixt 1
+
+    - name: Check database connection
+      run: |
+        # Test the database connetion from API container
+        docker compose exec -T app pg_isready -h db -U user -d frauddb
+
+    - name: Check prometheus
+      run: |
+        # Verify Prometheus is running
+        curl -f http://localhost:9090/-/healthy || exit 1
+
+    - name: Stop containers
+      run: docker compose down
