@@ -8,9 +8,16 @@ FEATURE_NAMES = [
 
 # API related constants
 API_DESCRIPTION = """
-Fruad Detection System API
-This API provides real-time fraud detection for financial transactions.
-"""
+        Real-Time Fraud Detection System API
+        
+        Features:
+        - Real-time transaction fraud detection
+        - Batch prediction support
+        - Model drift monitoring
+        - Performance metrics
+        
+        For detailed integration guide, visit our documentation.
+        """
 
 # Monitoring related constants
 METRICS_PREFIX = "fraud_detection"

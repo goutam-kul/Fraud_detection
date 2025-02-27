@@ -59,6 +59,19 @@ services:
       - fraud-net
     restart: unless-stopped
 
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: fraud-detection-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+    networks:
+      - fraud-net
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: fraud-detection-grafana

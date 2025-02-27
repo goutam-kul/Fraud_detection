@@ -11,3 +11,8 @@ scikit-learn    # For model inference
 xgboost         # If you're using XGBoost
 python-dotenv   # For environment variables
 joblib
+pytest
+pytest-mock
+pytest-cov
+pytest-asyncio
+coverage

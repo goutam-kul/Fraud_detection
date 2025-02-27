@@ -1,0 +1,4 @@
+data structure transformation loss
+[Synthetic Data Generator] → [PostgreSQL] → [Kafka Producer] → [Kafka] → [Kafka Consumer] → [Feature Store] → [Model]
+                                                                                                            ↓
+                                                                                                      [Results DB]

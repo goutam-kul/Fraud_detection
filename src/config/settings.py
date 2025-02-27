@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 from functools import lru_cache
 import os 
@@ -31,10 +31,12 @@ class Settings(BaseSettings):
 
     # Monitoring settings
     ENABLE_METRICS: bool = True
-
-    class Config: 
-        case_sensitive = True
+    
+    model_config = SettingsConfigDict(
+        case_sensitive = True,
         env_file = ".env"
+    )
+
 
 # Caching for this call 
 @lru_cache()
